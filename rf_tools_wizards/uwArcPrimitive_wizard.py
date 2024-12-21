@@ -68,6 +68,33 @@ class uwArcPrimitive_wizard(FootprintWizardBase.FootprintWizard):
         #    pref += "R"
         return pref + "***"
 
+    def arc_points(self, centre, start, angle_D, cw=True):
+        num_points = 20
+
+        center_complex = complex(*centre)
+        start_complex = complex(*start)
+
+        radius = abs(start_complex - center_complex)
+        start_angle = cmath.phase(start_complex - center_complex)
+
+        arc_angle_rad = math.radians(angle_D)
+        shape = pcbnew.SHAPE_LINE_CHAIN()
+        if cw:
+            step_angle = arc_angle_rad / (num_points - 1)
+            for i in range(num_points):
+                angle = start_angle + i * step_angle
+                point = center_complex + cmath.rect(radius, angle)
+                shape.Append(pcbnew.VECTOR2I(int(point.real), int(point.imag)))
+        else:
+            step_angle = arc_angle_rad / (num_points - 1)
+            for i in range(num_points):
+                angle = start_angle + ((num_points - 1) - i) * step_angle
+                point = center_complex + cmath.rect(radius, angle)
+                shape.Append(pcbnew.VECTOR2I(int(point.real), int(point.imag)))
+
+
+        return shape
+        
     # build a custom pad
     def smdCustomArcPad(self, module, size, pos, rad, name, angle_D, layer, ln, solder_clearance):
         if hasattr(pcbnew, 'D_PAD'):
@@ -105,7 +132,13 @@ class uwArcPrimitive_wizard(FootprintWizardBase.FootprintWizard):
                 pad.AddPrimitive(pcbnew.VECTOR2I(wxPoint(0,0)), pcbnew.VECTOR2I(wxPoint(rad,0)), (size[0]))            
         else: # kv8
             if not ln:
-                pad.AddPrimitive(pcbnew.VECTOR2I(int(0),int(rad)), pcbnew.VECTOR2I(int(0),int(0)), pcbnew.EDA_ANGLE(int(angle_D*10),pcbnew.DEGREES_T), (size[0])) 
+                shape = pcbnew.SHAPE_LINE_CHAIN()
+                shape.Append(self.arc_points((0,rad), (0,-size[0] / 2), int(angle_D*1), True))
+                shape.Append(self.arc_points((0,rad), (0,size[0] / 2), int(angle_D*1), False))
+                # shape.Append(self.arc_points((rad,rad), (0,size[0] / 2), int(angle_D*1), True))
+                poly = pcbnew.SHAPE_POLY_SET(shape)
+                pad.AddPrimitivePoly(poly, 0, True)
+                # pad.AddPrimitive(pcbnew.VECTOR2I(int(0),int(rad)), pcbnew.VECTOR2I(int(0),int(0)), pcbnew.EDA_ANGLE(int(angle_D*10),pcbnew.DEGREES_T), (size[0])) 
                 #pad.AddPrimitive(int(0),int(rad), int(0),int(0), pcbnew.EDA_ANGLE(int(angle_D*10),pcbnew.DEGREES_T), (size[0])) 
                 #pad.AddPrimitive((int(0),int(rad)), (int(0),int(0)), pcbnew.EDA_ANGLE(int(angle_D*10),pcbnew.DEGREES_T), (size[0])) 
             else:
